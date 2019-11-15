@@ -13,6 +13,8 @@ With Eiffellib you can start subscribing to and publish valid Eiffel messages qu
 
 It is designed to be fast and easy to start using while still being production quality.
 
+Documentation: https://eiffellib.readthedocs.io/en/latest/
+
 .. code-block:: python
     :caption: Subscribing to an event
 
