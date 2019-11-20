@@ -2,6 +2,16 @@
 Examples
 ========
 
+Start RabbitMQ
+--------------
+
+In order for these examples to work you need a RabbitMQ server:
+
+.. code-block::
+
+   # From https://hub.docker.com/_/rabbitmq
+   docker run -d --hostname my-rabbit --name some-rabbit -p 8080:15672 -p 5672:5672 rabbitmq:3-management
+
 Pub/Sub
 -------
 
@@ -38,8 +48,9 @@ This code snippet will subscribe to an ActivityStarted in order to publish an Ac
         activity_finished.links.add("ACTIVITY_EXECUTION", activity_triggered)
         PUBLISHER.send_event(activity_finished)
 
-    SUBSCRIBER = RabbitMQSubscriber(host="http://127.0.0.1", queue="eiffel", exchange="public")
-    PUBLISHER = RabbitMQPublisher(host="http://127.0.0.1")
+    SUBSCRIBER = RabbitMQSubscriber(host="127.0.0.1", queue="pubsub", exchange="amq.fanout",
+                                    ssl=False, port=5672)
+    PUBLISHER = RabbitMQPublisher(host="127.0.0.1", exchange="amq.fanout", port=5672, ssl=False)
 
     SUBSCRIBER.subscribe("EiffelActivityStartedEvent", callback)
     SUBSCRIBER.start()
@@ -47,7 +58,7 @@ This code snippet will subscribe to an ActivityStarted in order to publish an Ac
 
     # https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelActivityTriggeredEvent.md
     ACTIVITY_TRIGGERED = EiffelActivityTriggeredEvent()
-    ACTIVITY_TRIGGERED.data.add("name", "Test activity")
+    ACTIVITY_TRIGGERED.data.add("name", "Pubsub activity")
     PUBLISHER.send_event(ACTIVITY_TRIGGERED)
 
     # https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelActivityStartedEvent.md
@@ -85,10 +96,11 @@ An activity is just a callable which will send ActivityTriggered, Started and Fi
         def post_call(self, event, context):
             print("Activity has finished.")
 
-    SUBSCRIBER = RabbitMQSubscriber(host="http://127.0.0.1", queue="eiffel", exchange="public")
-    PUBLISHER = RabbitMQPublisher(host="http://127.0.0.1")
+    SUBSCRIBER = RabbitMQSubscriber(host="127.0.0.1", queue="activity", exchange="amq.fanout",
+                                    ssl=False, port=5672)
+    PUBLISHER = RabbitMQPublisher(host="127.0.0.1", exchange="amq.fanout", port=5672, ssl=False)
 
-    SOURCE = {"host": os.getenv("HOSTNAME"), "name": "MyActivity"}
+    SOURCE = {"host": os.getenv("HOSTNAME", "hostname"), "name": "MyActivity"}
     MY_ACTIVITY = MyActivity("Name of activity", PUBLISHER, SOURCE)
     SUBSCRIBER.subscribe("EiffelAnnouncementPublishedEvent", MY_ACTIVITY)
     SUBSCRIBER.start()
