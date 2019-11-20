@@ -22,13 +22,48 @@ Features
 - Event building assistance with event validation on receive and publish.
 - Following a context link.
 
-
 Installation
 ============
 
 Install the project for by running:
 
     pip install eiffellib
+
+Examples
+========
+
+Subscribing to an event
+-----------------------
+
+.. code-block:: python
+
+    import time
+    from eiffellib.subscribers import RabbitMQSubscriber
+
+
+    def callback(event, context):
+        print(event.pretty)
+
+    SUBSCRIBER = RabbitMQSubscriber(host="127.0.0.1", queue="eiffel",
+                                    exchange="public")
+    SUBSCRIBER.subscribe("EiffelActivityTriggeredEvent", callback)
+    SUBSCRIBER.start()
+    while True:
+        time.sleep(0.1)
+
+Publishing an event
+-------------------
+
+.. code-block:: python
+
+    from eiffellib.publishers import RabbitMQPublisher
+    from eiffellib.events import EiffelActivityTriggeredEvent
+
+    PUBLISHER = RabbitMQPublisher(host="127.0.0.1")
+    PUBLISHER.start()
+    ACTIVITY_TRIGGERED = EiffelActivityTriggeredEvent()
+    ACTIVITY_TRIGGERED.data.add("name", "Test activity")
+    PUBLISHER.send_event(ACTIVITY_TRIGGERED)
 
 Contribute
 ==========
