@@ -32,6 +32,16 @@ Install the project for by running:
 Examples
 ========
 
+Start RabbitMQ
+--------------
+
+In order for these examples to work you need a RabbitMQ server:
+
+.. code-block::
+
+   # From https://hub.docker.com/_/rabbitmq
+   docker run -d --hostname my-rabbit --name some-rabbit -p 8080:15672 -p 5672:5672 rabbitmq:3-management
+
 Subscribing to an event
 -----------------------
 
@@ -44,8 +54,8 @@ Subscribing to an event
     def callback(event, context):
         print(event.pretty)
 
-    SUBSCRIBER = RabbitMQSubscriber(host="127.0.0.1", queue="eiffel",
-                                    exchange="public")
+    SUBSCRIBER = RabbitMQSubscriber(host="127.0.0.1", port=5672, ssl=False,
+                                    queue="eiffel", exchange="amq.fanout")
     SUBSCRIBER.subscribe("EiffelActivityTriggeredEvent", callback)
     SUBSCRIBER.start()
     while True:
@@ -59,7 +69,8 @@ Publishing an event
     from eiffellib.publishers import RabbitMQPublisher
     from eiffellib.events import EiffelActivityTriggeredEvent
 
-    PUBLISHER = RabbitMQPublisher(host="127.0.0.1")
+    PUBLISHER = RabbitMQPublisher(host="127.0.0.1", exchange="amq.fanout", ssl=False,
+                                  port=5672)
     PUBLISHER.start()
     ACTIVITY_TRIGGERED = EiffelActivityTriggeredEvent()
     ACTIVITY_TRIGGERED.data.add("name", "Test activity")
