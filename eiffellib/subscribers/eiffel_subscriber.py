@@ -127,7 +127,7 @@ class EiffelSubscriber():
                 context = link.get("target")
                 break
         else:
-            context = event.meta.event_id
+            context = None
         return context
 
     def _call_followers(self, event):

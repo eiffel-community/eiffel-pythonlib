@@ -66,7 +66,8 @@ class Activity():
             self.triggered.data.add("triggers", self.triggers)
         if self.execution_type is not None:
             self.triggered.data.add("executionType", self.execution_type)
-        self.triggered.links.add("CONTEXT", context)
+        if context is not None:
+            self.triggered.links.add("CONTEXT", context)
         self.triggered.meta.add("source", self.source)
         self.publisher.send_event(self.triggered)
 
@@ -81,7 +82,8 @@ class Activity():
             return
 
         self.started = EiffelActivityStartedEvent()
-        self.started.links.add("CONTEXT", context)
+        if context is not None:
+            self.started.links.add("CONTEXT", context)
         self.started.links.add("ACTIVITY_EXECUTION", self.triggered)
         self.started.meta.add("source", self.source)
         self.publisher.send_event(self.started)
@@ -98,7 +100,8 @@ class Activity():
 
         self.finished = EiffelActivityFinishedEvent()
         self.finished.data.add("outcome", {"conclusion": "SUCCESSFUL"})
-        self.finished.links.add("CONTEXT", context)
+        if context is not None:
+            self.finished.links.add("CONTEXT", context)
         self.finished.links.add("ACTIVITY_EXECUTION", self.triggered)
         self.finished.meta.add("source", self.source)
         self.publisher.send_event(self.finished)
@@ -114,7 +117,8 @@ class Activity():
         self.canceled = EiffelActivityCanceledEvent()
         if reason is not None:
             self.canceled.data.add("reason", reason)
-        self.canceled.links.add("CONTEXT", context)
+        if context is not None:
+            self.canceled.links.add("CONTEXT", context)
         self.canceled.links.add("ACTIVITY_EXECUTION", self.triggered)
         self.canceled.meta.add("source", self.source)
         self.publisher.send_event(self.canceled)
@@ -127,10 +131,11 @@ class Activity():
         """
         try:
             self.activity_triggered(context)
-            self.pre_call(event, context)
+            call_context = context if context else self.triggered.meta.event_id
+            self.pre_call(event, call_context)
             self.activity_started(context)
-            self.call(event, context)
-            self.post_call(event, context)
+            self.call(event, call_context)
+            self.post_call(event, call_context)
             self.activity_finished(context)
         except Exception as exception:
             self.activity_canceled(context, str(exception))
