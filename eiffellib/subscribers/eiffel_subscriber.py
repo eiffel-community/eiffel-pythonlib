@@ -14,8 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Base Eiffel subscriber."""
+import logging
 import traceback
 import eiffellib.events
+
+_LOG = logging.getLogger(__name__)
 
 
 class EiffelSubscriber():
@@ -25,7 +28,6 @@ class EiffelSubscriber():
 
     def __init__(self):
         """Initialize a subscribers dict."""
-        self.verbose = False
         self.subscribers = {}
         self.followers = {}
         self.nackables = {}
@@ -154,16 +156,16 @@ class EiffelSubscriber():
         try:
             meta_type = json_data.get("meta", {}).get("type")
             event = getattr(eiffellib.events, meta_type)(json_data.get("meta", {}).get("version"))
-        except AttributeError:
-            if self.verbose:
-                traceback.print_exc()
+        except (AttributeError, TypeError) as err:
+            _LOG.debug("Dropping malformed or unsupported message: %r",
+                       json_data)
             results["finished"] = True
             return None, False
         try:
             event.rebuild(json_data)
-        except:  # pylint:disable=bare-except
-            if self.verbose:
-                traceback.print_exc()
+        except Exception as err:
+            _LOG.debug("Enable to deserialize message (%s): %r",
+                       err, json_data)
             results["finished"] = True
             return None, False
 
@@ -172,7 +174,9 @@ class EiffelSubscriber():
             ack = self._call_subscribers(meta_type, event)
             self._call_followers(event)
         except:  # pylint:disable=bare-except
-            traceback.print_exc()
+            _LOG.error("Caught exception while processing subscriber "
+                       "callbacks, some callbacks may not have been called: %s",
+                       traceback.format_exc())
             ack = False
         results["finished"] = True
         results["result"] = ack

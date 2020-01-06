@@ -16,12 +16,15 @@
 """RabbitMQ Eiffel subscriber."""
 import time
 import json
+import logging
 import threading
 import traceback
 from queue import Queue, Empty
 import ssl as _ssl
 import pika
 from eiffellib.subscribers import EiffelSubscriber
+
+_LOG = logging.getLogger(__name__)
 
 
 class RabbitMQSubscriber(EiffelSubscriber):  # pylint:disable=too-many-instance-attributes
@@ -67,21 +70,21 @@ class RabbitMQSubscriber(EiffelSubscriber):  # pylint:disable=too-many-instance-
         closed = False
         try:
             if self.connection is not None and self.connection.is_closed:
-                print("RabbitMQ: Connection is dead.")
+                _LOG.info("RabbitMQ: Connection is dead.")
                 closed = True
         except:  # pylint:disable=bare-except
             closed = True
         try:
             if self.channel is not None and self.channel.is_closed:
-                print("RabbitMQ: Channel is dead.")
+                _LOG.info("RabbitMQ: Channel is dead.")
                 closed = True
         except:  # pylint:disable=bare-except
             closed = True
         if self.connection_thread is not None and not self.connection_thread.isAlive():
-            print("RabbitMQ: Connection thread is dead.")
+            _LOG.critical("RabbitMQ: Connection thread is dead.")
             closed = True
         if self.delegator_thread is not None and not self.delegator_thread.isAlive():
-            print("RabbitMQ: Delegator thread is dead.")
+            _LOG.critical("RabbitMQ: Delegator thread is dead.")
             closed = True
         return not closed
 
@@ -155,8 +158,9 @@ class RabbitMQSubscriber(EiffelSubscriber):  # pylint:disable=too-many-instance-
                 else:
                     delivery_tag, body = self.delegator_queue.get_nowait()
                 json_data = json.loads(body.decode('utf-8'))
-            except json.decoder.JSONDecodeError:
-                print("Unable to decode json. Rejecting message")
+            except (json.decoder.JSONDecodeError, UnicodeDecodeError) as err:
+                _LOG.warning("Unable to deserialize message body (%s), "
+                             "rejecting: %r", err, body)
                 self.result_queue.put_nowait(("REJECT", delivery_tag, None))
                 continue
             except Empty:
@@ -240,10 +244,10 @@ class RabbitMQSubscriber(EiffelSubscriber):  # pylint:disable=too-many-instance-
                     self.connection.sleep(0.1)
                     timer = time.time() + 10
             except:  # pylint:disable=bare-except
-                traceback.print_exc()
-                print("Attempting reconnection in 5s")
+                _LOG.error("Unexpected exception occurred, "
+                           "restarting connection in 5 s: %s",
+                           traceback.format_exc())
                 self.connection.sleep(5)
-                print("Reconnecting..")
                 self._connect()
 
     def acknowledge(self, delivery_tag):
@@ -278,7 +282,8 @@ class RabbitMQSubscriber(EiffelSubscriber):  # pylint:disable=too-many-instance-
         self.requeue_tracker[event_id] += 1
 
         if self.requeue_tracker.get(event_id) > self.requeue_limit:
-            print("Event requeued {} times. Canceling it.".format(self.requeue_limit))
+            _LOG.info("Event requeued %d times. Canceling it.",
+                      self.requeue_limit)
             self.requeue_tracker.pop(event_id)
             self.reject(delivery_tag)
         else:
