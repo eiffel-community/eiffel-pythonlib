@@ -1,4 +1,4 @@
-# Copyright 2019 Axis Communications AB.
+# Copyright 2020 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -14,287 +14,216 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """RabbitMQ Eiffel subscriber."""
-import time
-import json
 import logging
 import threading
-import traceback
-from queue import Queue, Empty
-import ssl as _ssl
+from multiprocessing.pool import ThreadPool
+import functools
 import pika
-from eiffellib.subscribers import EiffelSubscriber
+from eiffellib.subscribers.eiffel_subscriber import EiffelSubscriber
+from eiffellib.lib.base_rabbitmq import BaseRabbitMQ
 
 _LOG = logging.getLogger(__name__)
 
 
-class RabbitMQSubscriber(EiffelSubscriber):  # pylint:disable=too-many-instance-attributes
+# pylint:disable=too-many-instance-attributes
+class RabbitMQSubscriber(EiffelSubscriber, BaseRabbitMQ):
     """Receiver for Rabbit MQ event databases."""
 
-    connection = None
-    connection_thread = None
-    delegator_thread = None
-    channel = None
-    # How many times an event get requeued before telling rabbitmq to throw it away.
-    requeue_limit = 1000
+    prefetch_count = 4   # RabbitMQ QOS prefetch count.
+    max_threads = 100    # Max number of callback threads active.
+    max_queue = 100      # Max number of waiting callbacks.
+
+    _consumer_tag = None
+
+    __thread_pool = None
+    __workers = None
 
     # pylint:disable=too-many-arguments
     def __init__(self, host, queue, exchange, username=None, password=None, port=5671,
                  vhost=None, routing_key=None, ssl=True, queue_params=None):
         """Initialize with rabbitmq host."""
         super(RabbitMQSubscriber, self).__init__()
+        BaseRabbitMQ.__init__(self, host, port, username, password, vhost, ssl)
         self.host = host
         self.queue = queue
-        self.delegator_queue = Queue()
-        self.result_queue = Queue()
-        self.lock = threading.Lock()
         self.exchange = exchange
         self.routing_key = routing_key
         self.queue_params = queue_params if queue_params else {}
-        self.requeue_tracker = {}
 
-        # These two lines are similar between subscriber and publisher.
-        # But since we don't want a connection between them; this is fine.
-        parameters = {"port": port}
-        if ssl is True:
-            context = _ssl.create_default_context()
-            ssl_options = pika.SSLOptions(context, host)
-            parameters["ssl_options"] = ssl_options
-        if username and password:
-            parameters["credentials"] = pika.PlainCredentials(username, password)
-        if vhost:
-            parameters["virtual_host"] = vhost
-        self.parameters = pika.ConnectionParameters(host, **parameters)
+    def reset_parameters(self):
+        """Reset parameters to default."""
+        super().reset_parameters()
+        self._consumer_tag = None
 
-    def is_alive(self):
-        """Check if RabbitMQ connection is alive."""
-        closed = False
-        try:
-            if self.connection is not None and self.connection.is_closed:
-                _LOG.info("RabbitMQ: Connection is dead.")
-                closed = True
-        except:  # pylint:disable=bare-except
-            closed = True
-        try:
-            if self.channel is not None and self.channel.is_closed:
-                _LOG.info("RabbitMQ: Channel is dead.")
-                closed = True
-        except:  # pylint:disable=bare-except
-            closed = True
-        if self.connection_thread is not None and not self.connection_thread.isAlive():
-            _LOG.critical("RabbitMQ: Connection thread is dead.")
-            closed = True
-        if self.delegator_thread is not None and not self.delegator_thread.isAlive():
-            _LOG.critical("RabbitMQ: Delegator thread is dead.")
-            closed = True
-        return not closed
+    def _setup(self, channel):
+        """Set up channel. Declare a queue to listen to.
 
-    def __del__(self):
-        """Close down connection and join thread."""
-        if self.connection is not None:
-            self.connection.close()
-        self.connection = None
-        self.channel = None
-        if self.connection_thread is not None:
-            self.connection_thread.join(10)
-
-    def _clean_up_old_threads(self, results):
-        """Clean up old threads an collect their results.
-
-        Collect results for each event thread and puts the result in
-        the result queue to be cleaned up later. The 'result' is whether
-        or not the event should be ACK'ed or requeued.
-
-        This method acquires a the subscriber thread lock!
-        DO NOT CALL THIS WITH AN ACQUIRED LOCK!
-
-        :param results: Dictionary where the threads will put their results.
-        :type results: dict
+        :param channel: RabbitMQ channel.
+        :type channel: :obj:`pika.channel.Channel`
         """
-        with self.lock:
-            pop = []
-            for delivery_tag, delegation in results.items():
-                ack = delegation.get("result")
-                if delegation.get("finished") is False:
-                    continue
-                pop.append(delivery_tag)
-                if ack:
-                    self.result_queue.put_nowait(("ACKNOWLEDGE", delivery_tag,
-                                                  delegation.get("event")))
-                elif ack is None:
-                    self.result_queue.put_nowait(("REJECT", delivery_tag,
-                                                  delegation.get("event")))
-                else:
-                    self.result_queue.put_nowait(("REQUEUE", delivery_tag,
-                                                  delegation.get("event")))
-            for delivery_tag in pop:
-                results.pop(delivery_tag)
+        _LOG.info("Declaring queue %s", self.queue)
+        callback = functools.partial(self._queue_declared, queue_name=self.queue)
+        channel.queue_declare(queue=self.queue, callback=callback, **self.queue_params)
 
-    def _delegator(self):
-        """Delegator which will get all events from the delegator queue and process them.
+    def _start(self, *args, **kwargs):
+        """Start consuming messages."""
+        _LOG.info("QOS set to: %d", self.prefetch_count)
+        _LOG.info("Start consuming messages.")
+        self._channel.add_on_cancel_callback(self._consumer_canceled)
 
-        Takes events from the delegator queue and starts an eiffel_subscriber call
-        within a daemon thread.
-        Creates a new thread for each event received via rabbitmq.
+        self._consumer_tag = self._channel.basic_consume(self.queue, self._on_message)
+        self._was_active = True
+        self.active = True
+        self.running = True
 
-        Will clean up old threads and check their results.
-        Keeps track of whether or not the event will be ACK'ed NACK'ed or Requeued and
-        puts that in the result queue.
+    def _cancel(self):
+        """Send a Cancel request to RabbitMQ."""
+        if self._channel:
+            _LOG.info("Sending Basic.Cancel to RabbitMQ")
+            callback = functools.partial(self._cancel_consumer, consumer_tag=self._consumer_tag)
+            self._channel.basic_cancel(self._consumer_tag, callback)
 
-        Will also try to keep track of 'dropped' events due to connection lost.
+    def _on_start(self):
+        """Setup ThreadPool and Semaphore lock before starting."""
+        self.__thread_pool = ThreadPool(self.max_threads)
+        self.__workers = threading.Semaphore(self.max_threads + self.max_queue)
+
+    def _queue_declared(self, _, queue_name):
+        """Queue declared callback. Bind queue.
+
+        :param queue_name: Name of the queue that was declared.
+        :type queue_name: str
         """
-        results = {}
-        dropped = []
-        while True:
-            body = None
-            delivery_tag = None
-            time.sleep(0.01)
-            if not self.is_alive:
-                continue
+        _LOG.info("Binding '%s' to '%s' with routing key '%s'", self.exchange,
+                  queue_name, self.routing_key)
+        callback = functools.partial(self._queue_bound, queue_name=queue_name)
+        if self.routing_key is not None:
+            self._channel.queue_bind(exchange=self.exchange, queue=queue_name,
+                                     routing_key=self.routing_key, callback=callback)
+        else:
+            self._channel.queue_bind(exchange=self.exchange, queue=self.queue, callback=callback)
 
-            try:
-                self._clean_up_old_threads(results)
-                if dropped:
-                    delivery_tag, body = dropped.pop()
-                else:
-                    delivery_tag, body = self.delegator_queue.get_nowait()
-                json_data = json.loads(body.decode('utf-8'))
-            except (json.decoder.JSONDecodeError, UnicodeDecodeError) as err:
-                _LOG.warning("Unable to deserialize message body (%s), "
-                             "rejecting: %r", err, body)
-                self.result_queue.put_nowait(("REJECT", delivery_tag, None))
-                continue
-            except Empty:
-                continue
-            except (pika.exceptions.ConnectionClosed, pika.exceptions.ChannelClosed,
-                    AttributeError):
-                if body is not None:
-                    dropped.append((delivery_tag, body))
-                continue
+    def _queue_bound(self, _, queue_name):
+        """Queue bound callback. Set QOS."""
+        _LOG.info("Queue bound: %s", queue_name)
+        self._channel.basic_qos(prefetch_count=self.prefetch_count, callback=self._start)
 
-            results.setdefault(delivery_tag, {})
-            thread = threading.Thread(target=self.call, args=(json_data, results[delivery_tag]))
-            thread.daemon = True
-            results[delivery_tag]["thread"] = thread
-            thread.start()
+    def _consumer_canceled(self, method_frame):
+        """Channel remotely canceled callback.
 
-    def consume_results(self):
-        """Consume results from the result queue and ACK, NACK or REQUEUE the events.
-
-        This method acquires a the subscriber thread lock!
-        DO NOT CALL THIS WITH AN ACQUIRED LOCK!
+        :param method_frame: Frame which triggered this callback.
+        :type method_frame: class
         """
-        with self.lock:
-            try:
-                method, delivery_tag, event = self.result_queue.get_nowait()
-                if method == "REJECT":
-                    self.reject(delivery_tag)
-                elif method == "ACKNOWLEDGE":
-                    self.acknowledge(delivery_tag)
-                elif method == "REQUEUE":
-                    self.requeue(event, delivery_tag)
-            except Empty:
-                pass
+        _LOG.info("Consumer was canceled remotely, shutting down: %r", method_frame)
+        if self._channel:
+            self._channel.close()
 
-    def _connect(self):
-        """Connect to rabbitmq, set up connection, channel and queue.
+    def _on_message(self, _, method, __, body):
+        """On message callback. Called on each message. Will block if no place in queue.
 
-        This method will disconnect the active channel and connection
-        before starting a new one.
-        Do not call this twice if not to reconnect.
+        For each message attempt to acquire the `threading.Semaphore`. The semaphore
+        size is `max_threads` + `max_queue`. This is to limit the amount of threads
+        in the queue, waiting to be processed.
+        For each message apply them async to a `ThreadPool` with size=`max_threads`.
 
-        This method acquires a the subscriber thread lock!
-        DO NOT CALL THIS WITH AN ACQUIRED LOCK!
+        :param method: Pika basic deliver object.
+        :type method: :obj:`pika.spec.Basic.Deliver`
+        :param properties: Pika basic properties object.
+        :type properties: :obj:`pika.spec.BasicProperties`
+        :param body: Message body.
+        :type body: bytes
         """
-        with self.lock:
-            self.channel = None
-            if self.connection and self.connection.is_open:
-                self.connection.close()
-            self.connection = None
+        self.__workers.acquire()
+        delivery_tag = method.delivery_tag
+        error_callback = functools.partial(self.callback_error, delivery_tag)
+        result_callback = functools.partial(self.callback_results, delivery_tag)
+        self.__thread_pool.apply_async(self.call, args=(body,), callback=result_callback,
+                                       error_callback=error_callback)
 
-            self.connection = pika.BlockingConnection(self.parameters)
-            self.channel = self.connection.channel()
+    def callback_results(self, delivery_tag, result):
+        """Result callback for the ThreadPool. Called on successful execution of event.
 
-            self.channel.queue_declare(queue=self.queue, **self.queue_params)
-            if self.routing_key is not None:
-                self.channel.queue_bind(exchange=self.exchange, queue=self.queue,
-                                        routing_key=self.routing_key)
-            else:
-                self.channel.queue_bind(exchange=self.exchange, queue=self.queue)
-            self.channel.basic_qos(prefetch_count=4)
+        Add a callback to the ioloop depending on the result of execution.
+        If result is ack, call :meth:`acknowledge`.
+        If result is requeue, call :meth:`requeue`.
+        If result is not ack and not requeue, call :meth:`reject`.
 
-    def _run(self):
-        """Start consuming the rabbitmq database.
-
-        Start this in a thread for best results.
+        :param delivery_tag: Delivery tag for the message that triggered.
+        :type delivery_tag: int
+        :param result: Result object for ThreadPool.
+        :type result: :obj:`multiprocessing.pool.AsyncResult`
         """
-        self._connect()
+        self.__workers.release()
+        ack, requeue = result
+        if ack:
+            callback = functools.partial(self.acknowledge, self._channel, delivery_tag)
+        elif requeue:
+            callback = functools.partial(self.requeue, self._channel, delivery_tag)
+        else:
+            callback = functools.partial(self.reject, self._channel, delivery_tag)
+        self._connection.ioloop.add_callback(callback)
 
-        timer = time.time() + 10
-        while True:
-            try:
-                method, _, body = self.channel.basic_get(self.queue)
-                self.consume_results()
-                if method is not None:
-                    self.delegator_queue.put_nowait((method.delivery_tag, body))
-                else:
-                    self.connection.sleep(0.1)
-                    continue
-                # Just to make sure we do connection sleep every now and then.
-                if timer < time.time():
-                    self.connection.sleep(0.1)
-                    timer = time.time() + 10
-            except:  # pylint:disable=bare-except
-                _LOG.error("Unexpected exception occurred, "
-                           "restarting connection in 5 s: %s",
-                           traceback.format_exc())
-                self.connection.sleep(5)
-                self._connect()
+    def callback_error(self, delivery_tag, exception):
+        """Error callback for the ThreadPool. Reject the message.
 
-    def acknowledge(self, delivery_tag):
+        :param delivery_tag: Delivery tag for the message that triggered.
+        :type delivery_tag: int
+        :param exception: Exception raised from within event callback.
+        :type exception: Exception
+        """
+        _LOG.warning("Callback raised exception: %s", exception)
+        self.__workers.release()
+        callback = functools.partial(self.reject, self._channel, delivery_tag)
+        self._connection.ioloop.add_callback(callback)
+
+    @staticmethod
+    def acknowledge(channel, delivery_tag):
         """Acknowledge that a message has been received and will be processed.
 
+        :param channel: Channel to acknowledge on.
+        :type channel: :obj:`pika.channel.Channel`
         :param delivery_tag: Delivery tag to acknowledge.
         :type delivery_tag: int
         """
-        self.channel.basic_ack(delivery_tag)
+        try:
+            channel.basic_ack(delivery_tag)
+        except pika.exceptions.AMQPChannelError as exception:
+            _LOG.error("Exception when attempting to ACK: %s", exception)
 
-    def reject(self, delivery_tag):
+    @staticmethod
+    def reject(channel, delivery_tag):
         """Reject a message and remove it completely from RabbitMQ.
 
+        :param channel: Channel to reject on.
+        :type channel: :obj:`pika.channel.Channel`
         :param delivery_tag: Delivery tag to reject.
         :type delivery_tag: int
         """
-        self.channel.basic_reject(delivery_tag, requeue=False)
+        try:
+            channel.basic_reject(delivery_tag, requeue=False)
+        except pika.exceptions.AMQPChannelError as exception:
+            _LOG.error("Exception when attempting to REJECT: %s", exception)
 
-    def requeue(self, event, delivery_tag):
-        """Requeue a message based on delivery_tag. Will reject if event has been requeued too many times.
+    @staticmethod
+    def requeue(channel, delivery_tag):
+        """Requeue a message based on delivery_tag.
 
-        :param event: Event to reject.
-        :type event: `eiffellib.events.eiffel_base_event.EiffelBaseEvent`
+        :param channel: Channel to requeue on.
+        :type channel: :obj:`pika.channel.Channel`
         :param delivery_tag: Delivery tag to requeue.
         :type delivery_tag: int
         """
-        if event is None:
-            self.reject(delivery_tag)
-        event_id = event.meta.event_id
+        try:
+            channel.basic_reject(delivery_tag, requeue=True)
+        except pika.exceptions.AMQPChannelError as exception:
+            _LOG.error("Exception when attempting to REQUEUE: %s", exception)
 
-        self.requeue_tracker.setdefault(event_id, 0)
-        self.requeue_tracker[event_id] += 1
+    def _cancel_consumer(self, _, consumer_tag):
+        """Consumer canceled callback. RabbitMQ acknowledged the cancelation. Close channel.
 
-        if self.requeue_tracker.get(event_id) > self.requeue_limit:
-            _LOG.info("Event requeued %d times. Canceling it.",
-                      self.requeue_limit)
-            self.requeue_tracker.pop(event_id)
-            self.reject(delivery_tag)
-        else:
-            self.channel.basic_reject(delivery_tag, requeue=True)
-
-    def start(self):
-        """Start the rabbitmq receiver."""
-        self.connection_thread = threading.Thread(target=self._run)
-        self.connection_thread.daemon = True
-        self.connection_thread.start()
-
-        self.delegator_thread = threading.Thread(target=self._delegator)
-        self.delegator_thread.daemon = True
-        self.delegator_thread.start()
+        :param consumer_tag: Consumer tag for this subscriber.
+        :type consumer_tag: str
+        """
+        self.active = False
+        _LOG.info("RabbitMQ acknowledged the cancelation of the consumer: %s", consumer_tag)
+        self.close_channel()

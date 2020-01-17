@@ -1,4 +1,4 @@
-# Copyright 2019 Axis Communications AB.
+# Copyright 2020 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -27,9 +27,12 @@ class EiffelPublisher():
         """Start the pika rabbitmq connection."""
         raise NotImplementedError
 
-    def send_event(self, event):
+    def send_event(self, event, block=True):
         """Validate and send an eiffel event to server.
 
+        :param block: Set to True in order to block until ready.
+                      Default: True
+        :type block: bool
         :param event: Event to send.
         :type event: :obj:`eiffellib.events.eiffel_base_event.EiffelBaseEvent`
         """
