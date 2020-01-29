@@ -127,7 +127,7 @@ class BaseRabbitMQ:
         if self._closing:
             self._connection.ioloop.stop()
         else:
-            _LOG.warning("Connection closed, reconnecting: %s", reason)
+            _LOG.warning("Connection closed, reconnecting: %r", reason)
             self.reconnect()
 
     def _connection_open_error(self, _, error):
@@ -138,7 +138,7 @@ class BaseRabbitMQ:
         :param error: Reason the connection was closed.
         :type error: str
         """
-        _LOG.error("Failed to open connection: %s", error)
+        _LOG.error("Failed to open connection: %r", error)
         self.reconnect()
 
     def _channel_open(self, channel):
@@ -154,7 +154,7 @@ class BaseRabbitMQ:
 
     def _channel_closed(self, channel, reason):
         """Channel closed callback. Close connection."""
-        _LOG.warning("Channel %i was closed: %s", channel, reason)
+        _LOG.warning("Channel %i was closed: %r", channel, reason)
         self.close_connection()
 
     def close_channel(self):

@@ -47,7 +47,7 @@ class RabbitMQSubscriber(EiffelSubscriber, BaseRabbitMQ):
         self.host = host
         self.queue = queue
         self.exchange = exchange
-        self.routing_key = routing_key
+        self.routing_key = routing_key or "#"
         self.queue_params = queue_params if queue_params else {}
 
     def reset_parameters(self):
@@ -61,7 +61,7 @@ class RabbitMQSubscriber(EiffelSubscriber, BaseRabbitMQ):
         :param channel: RabbitMQ channel.
         :type channel: :obj:`pika.channel.Channel`
         """
-        _LOG.info("Declaring queue %s", self.queue)
+        _LOG.info("Declaring queue %r", self.queue)
         callback = functools.partial(self._queue_declared, queue_name=self.queue)
         channel.queue_declare(queue=self.queue, callback=callback, **self.queue_params)
 
@@ -94,7 +94,7 @@ class RabbitMQSubscriber(EiffelSubscriber, BaseRabbitMQ):
         :param queue_name: Name of the queue that was declared.
         :type queue_name: str
         """
-        _LOG.info("Binding '%s' to '%s' with routing key '%s'", self.exchange,
+        _LOG.info("Binding %r to %r with routing key %r", self.exchange,
                   queue_name, self.routing_key)
         callback = functools.partial(self._queue_bound, queue_name=queue_name)
         if self.routing_key is not None:
@@ -105,7 +105,7 @@ class RabbitMQSubscriber(EiffelSubscriber, BaseRabbitMQ):
 
     def _queue_bound(self, _, queue_name):
         """Queue bound callback. Set QOS."""
-        _LOG.info("Queue bound: %s", queue_name)
+        _LOG.info("Queue bound: %r", queue_name)
         self._channel.basic_qos(prefetch_count=self.prefetch_count, callback=self._start)
 
     def _consumer_canceled(self, method_frame):
@@ -171,7 +171,7 @@ class RabbitMQSubscriber(EiffelSubscriber, BaseRabbitMQ):
         :param exception: Exception raised from within event callback.
         :type exception: Exception
         """
-        _LOG.warning("Callback raised exception: %s", exception)
+        _LOG.warning("Callback raised exception: %r", exception)
         self.__workers.release()
         callback = functools.partial(self.reject, self._channel, delivery_tag)
         self._connection.ioloop.add_callback(callback)
@@ -188,7 +188,7 @@ class RabbitMQSubscriber(EiffelSubscriber, BaseRabbitMQ):
         try:
             channel.basic_ack(delivery_tag)
         except pika.exceptions.AMQPChannelError as exception:
-            _LOG.error("Exception when attempting to ACK: %s", exception)
+            _LOG.error("Exception when attempting to ACK: %r", exception)
 
     @staticmethod
     def reject(channel, delivery_tag):
@@ -202,7 +202,7 @@ class RabbitMQSubscriber(EiffelSubscriber, BaseRabbitMQ):
         try:
             channel.basic_reject(delivery_tag, requeue=False)
         except pika.exceptions.AMQPChannelError as exception:
-            _LOG.error("Exception when attempting to REJECT: %s", exception)
+            _LOG.error("Exception when attempting to REJECT: %r", exception)
 
     @staticmethod
     def requeue(channel, delivery_tag):
@@ -216,7 +216,7 @@ class RabbitMQSubscriber(EiffelSubscriber, BaseRabbitMQ):
         try:
             channel.basic_reject(delivery_tag, requeue=True)
         except pika.exceptions.AMQPChannelError as exception:
-            _LOG.error("Exception when attempting to REQUEUE: %s", exception)
+            _LOG.error("Exception when attempting to REQUEUE: %r", exception)
 
     def _cancel_consumer(self, _, consumer_tag):
         """Consumer canceled callback. RabbitMQ acknowledged the cancelation. Close channel.
@@ -225,5 +225,5 @@ class RabbitMQSubscriber(EiffelSubscriber, BaseRabbitMQ):
         :type consumer_tag: str
         """
         self.active = False
-        _LOG.info("RabbitMQ acknowledged the cancelation of the consumer: %s", consumer_tag)
+        _LOG.info("RabbitMQ acknowledged the cancelation of the consumer: %r", consumer_tag)
         self.close_channel()
