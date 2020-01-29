@@ -1,4 +1,4 @@
-# Copyright 2019 Axis Communications AB.
+# Copyright 2020 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Base Eiffel subscriber."""
+import json
 import logging
 import traceback
 import eiffellib.events
@@ -143,40 +144,36 @@ class EiffelSubscriber():
             for callback in self.followers.get(context, []):
                 callback(event)
 
-    def call(self, json_data, results):
+    def call(self, body):
         """Rebuild event and call subscribers of that event with it as input.
 
-        :param json_data: Json data to parse.
-        :type json_data: dict
-        :param results: Stores results in this dictionary.
-        :type results: dict
+        :param body: Json data to parse.
+        :type body: bytes
+        :return: Acknowledge, reject or requeue.
+                 Tuple of bool where first element is whether to ACK or not.
+                 The second element is whether to Requeue a REJECT or not.
+        :rtype tuple
         """
-        results["result"] = None  # Default mode is to Reject.
-        results["finished"] = False
+        try:
+            json_data = json.loads(body.decode('utf-8'))
+        except (json.decoder.JSONDecodeError, UnicodeDecodeError) as err:
+            raise Exception("Unable to deserialize message body (%s), "
+                            "rejecting: %r" % (err, body))
         try:
             meta_type = json_data.get("meta", {}).get("type")
             event = getattr(eiffellib.events, meta_type)(json_data.get("meta", {}).get("version"))
         except (AttributeError, TypeError) as err:
-            _LOG.debug("Dropping malformed or unsupported message: %r",
-                       json_data)
-            results["finished"] = True
-            return None, False
+            raise Exception("Malformed message. Rejecting: %r" % json_data)
         try:
             event.rebuild(json_data)
         except Exception as err:
-            _LOG.debug("Enable to deserialize message (%s): %r",
-                       err, json_data)
-            results["finished"] = True
-            return None, False
-
-        results["event"] = event
+            raise Exception("Unable to deserialize message (%s): %r" % (err, json_data))
         try:
             ack = self._call_subscribers(meta_type, event)
             self._call_followers(event)
-        except:  # pylint:disable=bare-except
+        except:  # noqa, pylint:disable=bare-except
             _LOG.error("Caught exception while processing subscriber "
                        "callbacks, some callbacks may not have been called: %s",
                        traceback.format_exc())
             ack = False
-        results["finished"] = True
-        results["result"] = ack
+        return ack, True  # Requeue only if ack is False.
