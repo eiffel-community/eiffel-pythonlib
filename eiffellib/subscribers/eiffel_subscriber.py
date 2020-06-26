@@ -108,7 +108,7 @@ class EiffelSubscriber():
         at_least_one = False
         for callback in self.subscribers.get(meta_type, []) + self.subscribers.get("*", []):
             callback(event, self.get_context(event))
-        for callback in self.nackables.get(meta_type, []):
+        for callback in self.nackables.get(meta_type, []) + self.nackables.get("*", []):
             at_least_one = True
             response = callback(event, self.get_context(event))
             if response is True:
