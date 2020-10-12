@@ -2,6 +2,9 @@
 Eiffellib
 #########
 
+.. image:: https://img.shields.io/badge/Stage-Sandbox-yellow.svg
+  :target: https://github.com/eiffel-community/community/blob/master/PROJECT_LIFECYCLE.md#stage-sandbox
+
 Eiffellib is a python library for subscribing to and publishing Eiffel events to a message-broker.
 
 Description
