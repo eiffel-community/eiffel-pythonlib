@@ -1,4 +1,4 @@
-# Copyright 2019 Axis Communications AB.
+# Copyright 2019-2021 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -32,7 +32,7 @@ class EiffelActivityStartedData(EiffelBaseData):
 class EiffelActivityStartedEvent(EiffelBaseEvent):
     """Eiffel activity started event."""
 
-    version = "3.0.0"
+    version = "4.0.0"
 
     def __init__(self, version=None):
         """Initialize data, meta and links."""
