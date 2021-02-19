@@ -28,8 +28,11 @@ Features
 Installation
 ============
 
-Install the project for by running:
+Install the project by running:
 
+    pip install eiffellib[rabbitmq]
+
+If you only want to use the Eiffel message definitions leave out the optional dependency:
     pip install eiffellib
 
 Examples
