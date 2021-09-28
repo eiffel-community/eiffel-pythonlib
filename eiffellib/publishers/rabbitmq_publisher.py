@@ -1,4 +1,4 @@
-# Copyright 2020 Axis Communications AB.
+# Copyright 2020-2021 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -16,11 +16,13 @@
 """RabbitMQ Eiffel publisher."""
 import time
 import logging
+import warnings
 import pika
 from eiffellib.publishers.eiffel_publisher import EiffelPublisher
 from eiffellib.lib.base_rabbitmq import BaseRabbitMQ
 
 _LOG = logging.getLogger(__name__)
+warnings.simplefilter("module")
 
 
 class RabbitMQPublisher(EiffelPublisher, BaseRabbitMQ):
@@ -39,6 +41,9 @@ class RabbitMQPublisher(EiffelPublisher, BaseRabbitMQ):
         self._deliveries = {}
         self._nacked_deliveries = []
         self.exchange = exchange
+        if routing_key is not None:
+            warnings.warn("Using default routing_key on RabbitMQPublisher is deprecated. "
+                          "Please set it to None and let the events handle this.", DeprecationWarning)
         self.routing_key = routing_key
         self.source = source
 
@@ -152,16 +157,16 @@ class RabbitMQPublisher(EiffelPublisher, BaseRabbitMQ):
             while self._channel is None or not self._channel.is_open:
                 time.sleep(0.1)
 
-        correlation_id = event.meta.event_id
         properties = pika.BasicProperties(content_type="application/json",
                                           delivery_mode=2)
         if self.source is not None:
             event.meta.add("source", self.source)
         event.validate()
+        routing_key = self.routing_key or event.routing_key
         try:
             self._channel.basic_publish(
                 self.exchange,
-                self.routing_key,
+                routing_key,
                 event.serialized,
                 properties,
             )

@@ -1,4 +1,4 @@
-# Copyright 2019 Axis Communications AB.
+# Copyright 2019-2021 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -169,14 +169,31 @@ class EiffelBaseEvent(object):
 
     schema_file = None
     __schema = None
+    __routing_key = "eiffel.{family}.{type}.{tag}.{domain_id}"
+    family = None
+    tag = None
+    domain_id = None
     version = "0.0.1"
     meta = EiffelBaseMeta("EiffelBaseEvent", version)
     links = EiffelBaseLink()
 
-    def __init__(self, version=None):
-        """Initialize with a base data object."""
+    def __init__(self, version=None, family="_", tag="_", domain_id="_"):
+        """Initialize with a base data object.
+
+        :param version: If not None use this version when loading json schemas.
+        :type version: str
+        :param family: Routing key family as per the sepia recommendation. Defaults to "_".
+        :type family: str
+        :param tag: Routing key tag as per the sepia recommendation. Defaults to "_".
+        :type tag: str
+        :param domain_id: Routing key domain id as per the sepia recommendation. Defaults to "_".
+        :type domain_id: str
+        """
         if version is not None:
             self.version = version
+        self.family = family
+        self.tag = tag
+        self.domain_id = domain_id
         self.data = EiffelBaseData()
         self.load_schema(self.version)
 
@@ -196,6 +213,16 @@ class EiffelBaseEvent(object):
         self.links.rebuild(json_data.get("links", []))
         self.load_schema(self.meta.version)
         self.validate()
+
+    @property
+    def routing_key(self):
+        """The official sepia routing key for this event."""
+        return self.__routing_key.format(
+            family=self.family,
+            type=self.meta.type,
+            tag=self.tag,
+            domain_id=self.domain_id
+        )
 
     @property
     def json(self):

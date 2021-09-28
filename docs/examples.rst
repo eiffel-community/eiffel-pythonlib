@@ -7,7 +7,7 @@ Start RabbitMQ
 
 In order for these examples to work you need a RabbitMQ server:
 
-.. code-block::
+.. code-block:: bash
 
    # From https://hub.docker.com/_/rabbitmq
    docker run -d --hostname my-rabbit --name some-rabbit -p 8080:15672 -p 5672:5672 rabbitmq:3-management
@@ -50,7 +50,8 @@ This code snippet will subscribe to an ActivityStarted in order to publish an Ac
 
     SUBSCRIBER = RabbitMQSubscriber(host="127.0.0.1", queue="pubsub", exchange="amq.fanout",
                                     ssl=False, port=5672)
-    PUBLISHER = RabbitMQPublisher(host="127.0.0.1", exchange="amq.fanout", port=5672, ssl=False)
+    PUBLISHER = RabbitMQPublisher(host="127.0.0.1", exchange="amq.fanout", port=5672, ssl=False,
+                                  routing_key=None)
 
     SUBSCRIBER.subscribe("EiffelActivityStartedEvent", callback)
     SUBSCRIBER.start()
@@ -98,7 +99,8 @@ An activity is just a callable which will send ActivityTriggered, Started and Fi
 
     SUBSCRIBER = RabbitMQSubscriber(host="127.0.0.1", queue="activity", exchange="amq.fanout",
                                     ssl=False, port=5672)
-    PUBLISHER = RabbitMQPublisher(host="127.0.0.1", exchange="amq.fanout", port=5672, ssl=False)
+    PUBLISHER = RabbitMQPublisher(host="127.0.0.1", exchange="amq.fanout", port=5672, ssl=False,
+                                  routing_key=None)
 
     SOURCE = {"host": os.getenv("HOSTNAME", "hostname"), "name": "MyActivity"}
     MY_ACTIVITY = MyActivity("Name of activity", PUBLISHER, SOURCE)

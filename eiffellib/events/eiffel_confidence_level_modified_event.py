@@ -1,4 +1,4 @@
-# Copyright 2019 Axis Communications AB.
+# Copyright 2019-2021 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -34,9 +34,9 @@ class EiffelConfidenceLevelModifiedEvent(EiffelBaseEvent):
 
     version = "3.0.0"
 
-    def __init__(self, version=None):
+    def __init__(self, *args, **kwargs):
         """Initialize data, meta and links."""
-        super(EiffelConfidenceLevelModifiedEvent, self).__init__(version)
+        super(EiffelConfidenceLevelModifiedEvent, self).__init__(*args, **kwargs)
         self.meta = EiffelBaseMeta("EiffelConfidenceLevelModifiedEvent", self.version)
         self.links = EiffelConfidenceLevelModifiedLink()
         self.data = EiffelConfidenceLevelModifiedData()

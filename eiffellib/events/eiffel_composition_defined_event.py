@@ -34,9 +34,9 @@ class EiffelCompositionDefinedEvent(EiffelBaseEvent):
 
     version = "3.1.0"
 
-    def __init__(self, version=None):
+    def __init__(self, *args, **kwargs):
         """Initialize data, meta and links."""
-        super(EiffelCompositionDefinedEvent, self).__init__(version)
+        super(EiffelCompositionDefinedEvent, self).__init__(*args, **kwargs)
         self.meta = EiffelBaseMeta("EiffelCompositionDefinedEvent", self.version)
         self.links = EiffelCompositionDefinedLink()
         self.data = EiffelCompositionDefinedData()

@@ -1,4 +1,4 @@
-# Copyright 2019 Axis Communications AB.
+# Copyright 2019-2021 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -34,9 +34,9 @@ class EiffelArtifactReusedEvent(EiffelBaseEvent):
 
     version = "3.0.0"
 
-    def __init__(self, version=None):
+    def __init__(self, *args, **kwargs):
         """Initialize data, meta and links."""
-        super(EiffelArtifactReusedEvent, self).__init__(version)
+        super(EiffelArtifactReusedEvent, self).__init__(*args, **kwargs)
         self.meta = EiffelBaseMeta("EiffelArtifactReusedEvent", self.version)
         self.links = EiffelArtifactReusedLink()
         self.data = EiffelArtifactReusedData()
