@@ -17,9 +17,13 @@
 import time
 import logging
 import warnings
+from copy import deepcopy
+
 import pika
+
 from eiffellib.publishers.eiffel_publisher import EiffelPublisher
 from eiffellib.lib.base_rabbitmq import BaseRabbitMQ
+from eiffellib.events.eiffel_base_event import EiffelBaseEvent
 
 _LOG = logging.getLogger(__name__)
 warnings.simplefilter("module")
@@ -146,6 +150,16 @@ class RabbitMQPublisher(EiffelPublisher, BaseRabbitMQ):
     def send_event(self, event, block=True):
         """Validate and send an eiffel event to the rabbitmq server.
 
+        This method will set the source on all events if there is a source
+        added to the :obj:`RabbitMQPublisher`.
+        If the routing key is set to None in the :obj:`RabbitMQPublisher` this
+        method will use the routing key from the event that is being sent.
+        The event domainId will also be added to `meta.source` if it is set to
+        anything other than the default value. If there is no domainId
+        set on the event, then the domainId from the source in the
+        :obj:`RabbitMQPublisher` will be used in the routing key, with a default
+        value taken from the :obj:`eiffellib.events.eiffel_base_event.EiffelBaseEvent`.
+
         :param event: Event to send.
         :type event: :obj:`eiffellib.events.eiffel_base_event.EiffelBaseEvent`
         :param block: Set to True in order to block for channel to become ready.
@@ -159,8 +173,17 @@ class RabbitMQPublisher(EiffelPublisher, BaseRabbitMQ):
 
         properties = pika.BasicProperties(content_type="application/json",
                                           delivery_mode=2)
-        if self.source is not None:
-            event.meta.add("source", self.source)
+        source = deepcopy(self.source)
+        if self.routing_key is None and event.domain_id != EiffelBaseEvent.domain_id:
+            source = source or {}
+            source["domainId"] = event.domain_id
+        elif self.routing_key is None and source is not None:
+            # EiffelBaseEvent.domain_id will be the default value.
+            # By using that value instead of setting the default in this
+            # method there will only be one place to set the default (the events).
+            event.domain_id = source.get("domainId", EiffelBaseEvent.domain_id)
+        if source is not None:
+            event.meta.add("source", source)
         event.validate()
         routing_key = self.routing_key or event.routing_key
         try:

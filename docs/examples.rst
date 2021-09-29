@@ -102,7 +102,8 @@ An activity is just a callable which will send ActivityTriggered, Started and Fi
     PUBLISHER = RabbitMQPublisher(host="127.0.0.1", exchange="amq.fanout", port=5672, ssl=False,
                                   routing_key=None)
 
-    SOURCE = {"host": os.getenv("HOSTNAME", "hostname"), "name": "MyActivity"}
+    SOURCE = {"host": os.getenv("HOSTNAME", "hostname"), "name": "MyActivity",
+              "domainId": "example"}
     MY_ACTIVITY = MyActivity("Name of activity", PUBLISHER, SOURCE)
     SUBSCRIBER.subscribe("EiffelAnnouncementPublishedEvent", MY_ACTIVITY)
     SUBSCRIBER.start()

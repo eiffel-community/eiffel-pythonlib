@@ -170,9 +170,9 @@ class EiffelBaseEvent(object):
     schema_file = None
     __schema = None
     __routing_key = "eiffel.{family}.{type}.{tag}.{domain_id}"
-    family = None
-    tag = None
-    domain_id = None
+    family = "_"
+    tag = "_"
+    domain_id = "_"
     version = "0.0.1"
     meta = EiffelBaseMeta("EiffelBaseEvent", version)
     links = EiffelBaseLink()
