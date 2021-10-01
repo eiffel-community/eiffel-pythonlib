@@ -76,11 +76,44 @@ Publishing an event
     from eiffellib.events import EiffelActivityTriggeredEvent
 
     PUBLISHER = RabbitMQPublisher(host="127.0.0.1", exchange="amq.fanout", ssl=False,
-                                  port=5672)
+                                  port=5672, routing_key=None)
     PUBLISHER.start()
     ACTIVITY_TRIGGERED = EiffelActivityTriggeredEvent()
     ACTIVITY_TRIGGERED.data.add("name", "Test activity")
     PUBLISHER.send_event(ACTIVITY_TRIGGERED)
+
+Deprecation of routing key
+--------------------------
+
+The "routing_key" argument in the RabbitMQPublisher class has been deprecated.
+
+This deprecation also affects the default value of the "routing_key" argument and you will be getting warnings while running.
+
+
+The reason for this change is due to a misunderstanding of how routing keys are supposed to be used when eiffellib was first created.
+
+Each event will now be able to generate their own routing key every time the event is sent.
+
+This routing key is by default "eiffel._.$event_type._._" where the different values are "eiffel.$family.$event_type.$tag.$domainid".
+
+Please refer to https://eiffel-community.github.io/eiffel-sepia/rabbitmq-message-broker.html for more information about routing keys.
+
+
+To change to the new routing key behavior (and thus removing the warning), please set "routing_key" to "None" when initializing a new RabbitMQPublisher.
+
+.. code-block:: python
+
+    PUBLISHER = RabbitMQPublisher(host="127.0.0.1", exchange="amq.fanout", ssl=False,
+                                  port=5672, routing_key=None)
+
+In order to change "$family", "$tag" or "$domainid" in the routing key, they have to be set on the events.
+
+.. code-block:: python
+
+    PUBLISHER = RabbitMQPublisher(host="127.0.0.1", exchange="amq.fanout", ssl=False,
+                                  port=5672, routing_key=None)
+    EVENT = EiffelActivityTriggeredEvent(family="myfamily", tag="mytag", domain_id="mydomain")
+    PUBLISHER.send_event(EVENT)
 
 Contribute
 ==========
