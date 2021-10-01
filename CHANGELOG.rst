@@ -2,6 +2,11 @@
 Changelog
 =========
 
+Version 2.2.0
+-------------
+
+- Add sepia routing keys to eiffellib
+
 Version 2.1.0
 -------------
 
