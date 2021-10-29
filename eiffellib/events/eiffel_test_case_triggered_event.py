@@ -32,7 +32,7 @@ class EiffelTestCaseTriggeredData(EiffelBaseData):
 class EiffelTestCaseTriggeredEvent(EiffelBaseEvent):
     """Eiffel test case triggered event."""
 
-    version = "3.0.0"
+    version = "3.1.0"
 
     def __init__(self, *args, **kwargs):
         """Initialize data, meta and links."""

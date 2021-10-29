@@ -32,7 +32,7 @@ class EiffelTestSuiteFinishedData(EiffelBaseData):
 class EiffelTestSuiteFinishedEvent(EiffelBaseEvent):
     """Eiffel test suite finished event."""
 
-    version = "3.0.0"
+    version = "3.2.0"
 
     def __init__(self, *args, **kwargs):
         """Initialize data, meta and links."""
