@@ -32,7 +32,7 @@ class EiffelActivityTriggeredData(EiffelBaseData):
 class EiffelActivityTriggeredEvent(EiffelBaseEvent):
     """Eiffel activity triggered event."""
 
-    version = "4.0.0"
+    version = "4.1.0"
 
     def __init__(self, *args, **kwargs):
         """Initialize data, meta and links."""

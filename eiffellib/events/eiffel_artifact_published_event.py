@@ -32,7 +32,7 @@ class EiffelArtifactPublishedData(EiffelBaseData):
 class EiffelArtifactPublishedEvent(EiffelBaseEvent):
     """Eiffel artifact published event."""
 
-    version = "3.1.0"
+    version = "3.2.0"
 
     def __init__(self, *args, **kwargs):
         """Initialize data, meta and links."""

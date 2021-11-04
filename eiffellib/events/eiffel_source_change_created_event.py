@@ -32,7 +32,7 @@ class EiffelSourceChangeCreatedData(EiffelBaseData):
 class EiffelSourceChangeCreatedEvent(EiffelBaseEvent):
     """Eiffel source change created event."""
 
-    version = "4.0.0"
+    version = "4.1.0"
 
     def __init__(self, *args, **kwargs):
         """Initialize data, meta and links."""
