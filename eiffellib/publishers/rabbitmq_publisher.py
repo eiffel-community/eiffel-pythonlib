@@ -1,4 +1,4 @@
-# Copyright 2020-2021 Axis Communications AB.
+# Copyright 2020-2022 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -146,6 +146,27 @@ class RabbitMQPublisher(EiffelPublisher, BaseRabbitMQ):
         _LOG.debug('Published %i messages, %i have yet to be confirmed, '
                    '%i were acked and %i were nacked', self._acks+self._nacks,
                    len(self._deliveries), self._acks, self._nacks)
+
+    def wait_for_unpublished_events(self, timeout=60):
+        """Wait for all unpublished events to become published.
+
+        For the RabbitMQ publisher an event becomes published if the
+        broker (not the consumer) responds with an ACK.
+
+        :raises TimeoutError: If the timeout is reached, this will be raised.
+        :param timeout: A timeout, in seconds, to wait before exiting.
+        :type timeout: int
+        """
+        end = time.time() + timeout
+        deliveries = 0
+        while time.time() < end:
+            time.sleep(0.1)
+            deliveries = len(self._deliveries) + len(self._nacked_deliveries)
+            if deliveries == 0:
+                break
+        else:
+            raise TimeoutError("Timeout (%0.2fs) while waiting for events to publish"
+                               " (%d still unpublished)" % (timeout, deliveries))
 
     def send_event(self, event, block=True):
         """Validate and send an eiffel event to the rabbitmq server.

@@ -81,6 +81,7 @@ Publishing an event
     ACTIVITY_TRIGGERED = EiffelActivityTriggeredEvent()
     ACTIVITY_TRIGGERED.data.add("name", "Test activity")
     PUBLISHER.send_event(ACTIVITY_TRIGGERED)
+    PUBLISHER.wait_for_unpublished_events()
 
 Deprecation of routing key
 --------------------------
