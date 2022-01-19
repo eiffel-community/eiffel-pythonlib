@@ -210,17 +210,19 @@ class RabbitMQPublisher(EiffelPublisher, BaseRabbitMQ):
             event.meta.add("source", source)
         event.validate()
         routing_key = self.routing_key or event.routing_key
-        try:
-            self._channel.basic_publish(
-                self.exchange,
-                routing_key,
-                event.serialized,
-                properties,
-            )
-        except:
-            self._nacked_deliveries.append(event)
-            return
-        self._delivered += 1
-        self._deliveries[self._delivered] = event
+
+        with self._lock:
+            try:
+                self._channel.basic_publish(
+                    self.exchange,
+                    routing_key,
+                    event.serialized,
+                    properties,
+                )
+            except:
+                self._nacked_deliveries.append(event)
+                return
+            self._delivered += 1
+            self._deliveries[self._delivered] = event
 
     send = send_event
