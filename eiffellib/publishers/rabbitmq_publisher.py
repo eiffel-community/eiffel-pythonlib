@@ -17,7 +17,7 @@
 import time
 import logging
 import warnings
-from threading import RLock
+from threading import RLock, current_thread
 from copy import deepcopy
 
 import pika
@@ -109,11 +109,20 @@ class RabbitMQPublisher(EiffelPublisher, BaseRabbitMQ):
             self._connection.ioloop.call_later(1, self._resend_nacked_deliveries)
             return
 
+        # No need to acquire the lock if there are no nacked deliveries.
+        if not len(self._nacked_deliveries):
+            self._connection.ioloop.call_later(1, self._resend_nacked_deliveries)
+            return
+
         # If we cannot acquire the lock here, retry later otherwise call the send_event method.
+        _LOG.debug(f"[{current_thread().getName()}] Attempting to acquire '_resend_nacked_deliveries' lock")
         acquired = self._lock.acquire(blocking=False)
         if not acquired:
+            _LOG.debug(f"[{current_thread().getName()}] '_resend_nacked_deliveries' Locked")
             self._connection.ioloop.call_later(1, self._resend_nacked_deliveries)
+            return
         try:
+            _LOG.debug(f"[{current_thread().getName()}] '_resend_nacked_deliveries' Lock acquired")
             deliveries = self._nacked_deliveries.copy()
             if deliveries:
                 _LOG.info("Resending %i NACKed deliveries", len(deliveries))
@@ -125,6 +134,7 @@ class RabbitMQPublisher(EiffelPublisher, BaseRabbitMQ):
                 self.send_event(event, block=False)
         finally:
             self._lock.release()
+            _LOG.debug(f"[{current_thread().getName()}] '_resend_nacked_deliveries' Lock released")
             self._connection.ioloop.call_later(1, self._resend_nacked_deliveries)
 
     def _confirm_delivery(self, method_frame):
@@ -147,7 +157,9 @@ class RabbitMQPublisher(EiffelPublisher, BaseRabbitMQ):
 
         # Since _resend_nacked_deliveries runs in a thread we must protect this
         # part that modifies class attributes.
+        _LOG.debug(f"[{current_thread().getName()}] Attempting to acquire '_confirm_delivery' lock")
         with self._lock:
+            _LOG.debug(f"[{current_thread().getName()}] '_confirm_delivery' Lock acquired")
             if confirmation_type == 'ack':
                 self._acks += number_of_acks
             elif confirmation_type == 'nack':
@@ -170,6 +182,7 @@ class RabbitMQPublisher(EiffelPublisher, BaseRabbitMQ):
             _LOG.debug('Published %i messages, %i have yet to be confirmed, '
                     '%i were acked and %i were nacked', self._acks+self._nacks,
                     len(self._deliveries), self._acks, self._nacks)
+        _LOG.debug(f"[{current_thread().getName()}] '_confirm_delivery' Lock released")
 
     def send_event(self, event, block=True):
         """Validate and send an eiffel event to the rabbitmq server.
@@ -211,7 +224,9 @@ class RabbitMQPublisher(EiffelPublisher, BaseRabbitMQ):
         event.validate()
         routing_key = self.routing_key or event.routing_key
 
+        _LOG.debug(f"[{current_thread().getName()}] Attempting to acquire 'send_event' lock")
         with self._lock:
+            _LOG.debug(f"[{current_thread().getName()}] 'send_event' Lock acquired")
             try:
                 self._channel.basic_publish(
                     self.exchange,
@@ -224,5 +239,6 @@ class RabbitMQPublisher(EiffelPublisher, BaseRabbitMQ):
                 return
             self._delivered += 1
             self._deliveries[self._delivered] = event
+        _LOG.debug(f"[{current_thread().getName()}] 'send_event' Lock released")
 
     send = send_event
