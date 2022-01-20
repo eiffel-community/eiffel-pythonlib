@@ -24,7 +24,6 @@ This code snippet will subscribe to an ActivityStarted in order to publish an Ac
 
 .. code-block:: python
 
-    import time
     from eiffellib.subscribers import RabbitMQSubscriber
     from eiffellib.publishers import RabbitMQPublisher
     from eiffellib.events import (EiffelActivityTriggeredEvent,
@@ -68,7 +67,7 @@ This code snippet will subscribe to an ActivityStarted in order to publish an Ac
     PUBLISHER.send_event(ACTIVITY_STARTED)
 
     # Wait for event to be received by 'callback'.
-    time.sleep(1)
+    PUBLISHER.wait_for_unpublished_events()
 
 Activity
 --------
@@ -80,7 +79,6 @@ An activity is just a callable which will send ActivityTriggered, Started and Fi
 .. code-block:: python
 
     import os
-    import time
     from eiffellib.subscribers import RabbitMQSubscriber
     from eiffellib.publishers import RabbitMQPublisher
     from eiffellib.events import EiffelAnnouncementPublishedEvent
@@ -117,4 +115,4 @@ An activity is just a callable which will send ActivityTriggered, Started and Fi
     PUBLISHER.send_event(ANNOUNCEMENT)
 
     # Wait for event to be received by 'callback'.
-    time.sleep(1)
+    PUBLISHER.wait_for_unpublished_events()

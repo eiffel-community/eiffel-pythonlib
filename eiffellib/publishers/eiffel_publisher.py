@@ -1,4 +1,4 @@
-# Copyright 2020 Axis Communications AB.
+# Copyright 2020-2022 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -43,6 +43,15 @@ class EiffelPublisher():
 
         :param msg: Message to send.
         :type msg: str
+        """
+        raise NotImplementedError
+
+    def wait_for_unpublished_events(timeout=60):
+        """Wait for all unpublished events to become published.
+
+        :raises TimeoutError: If the timeout is reached, this will be raised.
+        :param timeout: A timeout, in seconds, to wait before exiting.
+        :type timeout: int
         """
         raise NotImplementedError
 
