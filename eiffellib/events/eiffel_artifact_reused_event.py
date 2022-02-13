@@ -37,6 +37,6 @@ class EiffelArtifactReusedEvent(EiffelBaseEvent):
     def __init__(self, *args, **kwargs):
         """Initialize data, meta and links."""
         super(EiffelArtifactReusedEvent, self).__init__(*args, **kwargs)
-        self.meta = EiffelBaseMeta("EiffelArtifactReusedEvent", self.version)
+        self.meta = EiffelBaseMeta(self.__class__.__name__, self.version)
         self.links = EiffelArtifactReusedLink()
         self.data = EiffelArtifactReusedData()

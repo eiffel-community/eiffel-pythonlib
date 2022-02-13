@@ -37,6 +37,6 @@ class EiffelTestCaseStartedEvent(EiffelBaseEvent):
     def __init__(self, *args, **kwargs):
         """Initialize data, meta and links."""
         super(EiffelTestCaseStartedEvent, self).__init__(*args, **kwargs)
-        self.meta = EiffelBaseMeta("EiffelTestCaseStartedEvent", self.version)
+        self.meta = EiffelBaseMeta(self.__class__.__name__, self.version)
         self.links = EiffelTestCaseStartedLink()
         self.data = EiffelTestCaseStartedData()

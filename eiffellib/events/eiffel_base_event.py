@@ -174,7 +174,7 @@ class EiffelBaseEvent(object):
     tag = "_"
     domain_id = "_"
     version = "0.0.1"
-    meta = EiffelBaseMeta("EiffelBaseEvent", version)
+    meta = EiffelBaseMeta(__qualname__, version)
     links = EiffelBaseLink()
 
     def __init__(self, version=None, family="_", tag="_", domain_id="_"):

@@ -37,6 +37,6 @@ class EiffelAnnouncementPublishedEvent(EiffelBaseEvent):
     def __init__(self, *args, **kwargs):
         """Initialize data, meta and links."""
         super(EiffelAnnouncementPublishedEvent, self).__init__(*args, **kwargs)
-        self.meta = EiffelBaseMeta("EiffelAnnouncementPublishedEvent", self.version)
+        self.meta = EiffelBaseMeta(self.__class__.__name__, self.version)
         self.links = EiffelAnnouncementPublishedLink()
         self.data = EiffelAnnouncementPublishedData()

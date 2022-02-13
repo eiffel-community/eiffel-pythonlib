@@ -37,6 +37,6 @@ class EiffelConfidenceLevelModifiedEvent(EiffelBaseEvent):
     def __init__(self, *args, **kwargs):
         """Initialize data, meta and links."""
         super(EiffelConfidenceLevelModifiedEvent, self).__init__(*args, **kwargs)
-        self.meta = EiffelBaseMeta("EiffelConfidenceLevelModifiedEvent", self.version)
+        self.meta = EiffelBaseMeta(self.__class__.__name__, self.version)
         self.links = EiffelConfidenceLevelModifiedLink()
         self.data = EiffelConfidenceLevelModifiedData()

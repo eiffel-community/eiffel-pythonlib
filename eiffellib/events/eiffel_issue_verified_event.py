@@ -37,6 +37,6 @@ class EiffelIssueVerifiedEvent(EiffelBaseEvent):
     def __init__(self, *args, **kwargs):
         """Initialize data, meta and links."""
         super(EiffelIssueVerifiedEvent, self).__init__(*args, **kwargs)
-        self.meta = EiffelBaseMeta("EiffelIssueVerifiedEvent", self.version)
+        self.meta = EiffelBaseMeta(self.__class__.__name__, self.version)
         self.links = EiffelIssueVerifiedLink()
         self.data = EiffelIssueVerifiedData()

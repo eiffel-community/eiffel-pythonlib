@@ -37,6 +37,6 @@ class EiffelFlowContextDefinedEvent(EiffelBaseEvent):
     def __init__(self, *args, **kwargs):
         """Initialize data, meta and links."""
         super(EiffelFlowContextDefinedEvent, self).__init__(*args, **kwargs)
-        self.meta = EiffelBaseMeta("EiffelFlowContextDefinedEvent", self.version)
+        self.meta = EiffelBaseMeta(self.__class__.__name__, self.version)
         self.links = EiffelFlowContextDefinedLink()
         self.data = EiffelFlowContextDefinedData()
