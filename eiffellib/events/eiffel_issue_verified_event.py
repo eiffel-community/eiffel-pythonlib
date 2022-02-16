@@ -1,4 +1,4 @@
-# Copyright 2019-2021 Axis Communications AB.
+# Copyright 2019-2022 Axis Communications AB and others.
 #
 # For a full list of individual contributors, please see the commit history.
 #
