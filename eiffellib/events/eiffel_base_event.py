@@ -1,4 +1,4 @@
-# Copyright 2019-2021 Axis Communications AB.
+# Copyright 2019-2022 Axis Communications AB and others.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -174,7 +174,7 @@ class EiffelBaseEvent(object):
     tag = "_"
     domain_id = "_"
     version = "0.0.1"
-    meta = EiffelBaseMeta("EiffelBaseEvent", version)
+    meta = EiffelBaseMeta(__qualname__, version)
     links = EiffelBaseLink()
 
     def __init__(self, version=None, family="_", tag="_", domain_id="_"):

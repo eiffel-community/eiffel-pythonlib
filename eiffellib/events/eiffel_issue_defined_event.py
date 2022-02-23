@@ -1,4 +1,4 @@
-# Copyright 2019-2021 Axis Communications AB.
+# Copyright 2019-2022 Axis Communications AB and others.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -37,6 +37,6 @@ class EiffelIssueDefinedEvent(EiffelBaseEvent):
     def __init__(self, *args, **kwargs):
         """Initialize data, meta and links."""
         super(EiffelIssueDefinedEvent, self).__init__(*args, **kwargs)
-        self.meta = EiffelBaseMeta("EiffelIssueDefinedEvent", self.version)
+        self.meta = EiffelBaseMeta(self.__class__.__name__, self.version)
         self.links = EiffelIssueDefinedLink()
         self.data = EiffelIssueDefinedData()
