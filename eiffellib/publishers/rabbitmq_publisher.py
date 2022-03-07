@@ -132,6 +132,7 @@ class RabbitMQPublisher(EiffelPublisher, BaseRabbitMQ):
                 self._nacked_deliveries.remove(event)
                 # Never block in an ioloop method
                 self.send_event(event, block=False)
+                time.sleep(0.1)  # Make sure we don't hog too much CPU.
         finally:
             self._lock.release()
             _LOG.debug(f"[{current_thread().getName()}] '_resend_nacked_deliveries' Lock released")
