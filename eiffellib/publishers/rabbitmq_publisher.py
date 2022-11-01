@@ -41,7 +41,7 @@ class RabbitMQPublisher(EiffelPublisher, BaseRabbitMQ):
 
     # pylint:disable=too-many-arguments
     def __init__(self, host, exchange, routing_key="eiffel",
-                 username=None, password=None, port=5671, vhost=None,
+                 username=None, password=None, port=5672, vhost=None,
                  source=None, ssl=True):
         """Initialize with host and create pika connection parameters."""
         BaseRabbitMQ.__init__(self, host, port, username, password, vhost, ssl)

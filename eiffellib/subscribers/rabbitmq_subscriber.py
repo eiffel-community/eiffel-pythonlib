@@ -39,7 +39,7 @@ class RabbitMQSubscriber(EiffelSubscriber, BaseRabbitMQ):
     __workers = None
 
     # pylint:disable=too-many-arguments
-    def __init__(self, host, queue, exchange, username=None, password=None, port=5671,
+    def __init__(self, host, queue, exchange, username=None, password=None, port=5672,
                  vhost=None, routing_key=None, ssl=True, queue_params=None):
         """Initialize with rabbitmq host."""
         super(RabbitMQSubscriber, self).__init__()
