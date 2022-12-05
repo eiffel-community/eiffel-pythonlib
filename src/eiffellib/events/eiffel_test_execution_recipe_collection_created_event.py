@@ -32,7 +32,7 @@ class EiffelTestExecutionRecipeCollectionCreatedData(EiffelBaseData):
 class EiffelTestExecutionRecipeCollectionCreatedEvent(EiffelBaseEvent):
     """Eiffel test execution recipe collection created event."""
 
-    version = "4.1.1"
+    version = "4.3.0"
 
     def __init__(self, *args, **kwargs):
         """Initialize data, meta and links."""
