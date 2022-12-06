@@ -32,7 +32,7 @@ class EiffelIssueVerifiedData(EiffelBaseData):
 class EiffelIssueVerifiedEvent(EiffelBaseEvent):
     """Eiffel issue verified event."""
 
-    version = "4.1.0"
+    version = "4.2.0"
 
     def __init__(self, *args, **kwargs):
         """Initialize data, meta and links."""
