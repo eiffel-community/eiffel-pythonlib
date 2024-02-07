@@ -1,4 +1,4 @@
-# Copyright 2019-2022 Axis Communications AB and others.
+# Copyright 2019-2024 Axis Communications AB and others.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -17,8 +17,12 @@
 
 https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelTestSuiteStartedEvent.md
 """
-from eiffellib.events.eiffel_base_event import (EiffelBaseEvent, EiffelBaseLink,
-                                                EiffelBaseData, EiffelBaseMeta)
+from eiffellib.events.eiffel_base_event import (
+    EiffelBaseData,
+    EiffelBaseEvent,
+    EiffelBaseLink,
+    EiffelBaseMeta,
+)
 
 
 class EiffelTestSuiteStartedLink(EiffelBaseLink):
@@ -32,7 +36,7 @@ class EiffelTestSuiteStartedData(EiffelBaseData):
 class EiffelTestSuiteStartedEvent(EiffelBaseEvent):
     """Eiffel test suite started event."""
 
-    version = "3.3.0"
+    version = "3.4.0"
 
     def __init__(self, *args, **kwargs):
         """Initialize data, meta and links."""
